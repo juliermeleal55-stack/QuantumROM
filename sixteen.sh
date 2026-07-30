@@ -22,8 +22,8 @@ export WORK_DIR="$(pwd)/WORK"
 export APKTOOL="$(pwd)/bin/java/apktool.jar"
 export DEVICES_DIR="$(pwd)/QuantumROM/Devices"
 export VNDKS_COLLECTION="$(pwd)/QuantumROM/vndks"
-export BUILD_PARTITIONS="product,system_ext,system,vendor,odm"
 export PATCHES_DIR="$(pwd)/QuantumROM/patches"
+export BUILD_PARTITIONS="product,system_ext,system,vendor,odm"
 
 # Source
 source "$(pwd)/scripts/debloat.sh"
@@ -79,6 +79,7 @@ BUILD_PROP "$FIRM_DIR/$TARGET_DEVICE" "system" "ro.build.display.id" "QuantumROM
 BUILD_PROP "$FIRM_DIR/$TARGET_DEVICE" "product" "ro.build.display.id" "QuantumROM Aurora - 1.0.0 (${B_ID}.${B_V})"
 
 BUILD_IMG "$FIRM_DIR/$TARGET_DEVICE" "all" "$OUTPUT_FILESYSTEM" "$OUT_DIR"
+BUILD_SUPER_IMG "$OUT_DIR" "$OUT_DIR"
 
 # Clean up stock vendor/odm images from firmware dir (already built to OUT)
 rm -f "$FIRM_DIR/$TARGET_DEVICE/vendor.img" "$FIRM_DIR/$TARGET_DEVICE/odm.img"
