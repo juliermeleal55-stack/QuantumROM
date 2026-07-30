@@ -2,7 +2,7 @@
 # =============================================================================
 #  QuantumROM — debloat.sh (Galaxy AI, Messages & Velvet Preserved)
 # =============================================================================
-
+source "$DEVICES_DIR/STOCK_DEVICE/config"
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 KICK() {
@@ -116,7 +116,6 @@ DEBLOAT() {
 
     # ── 2. Ghost folders & misc files ────────────────────────────────────────
     quantum_remove "system" "hidden"
-    quantum_remove "system" "preload"
     quantum_remove "system" "skt"
     quantum_remove "system" "tts"
     quantum_remove "system" "etc/mediasearch"
@@ -205,7 +204,7 @@ DEBLOAT() {
     # Miscellaneous useless system services
     BLOAT_TARGETS+=(
         "MAPSAgent" "AppUpdateCenter" "BCService" "UnifiedVVM" "UnifiedTetheringProvision"
-        "UsByod" "WebManual" "DictDiotekForSec" "Scone" "VzCloud"
+        "UsByod" "WebManual" "DictDiotekForSec" "VzCloud"
         "OmcAgent5" "SetupWizardLegalProvider" "SPPPushClient" "HiyaService"
         # from original
         "Discover" "DiscoverSEP" "FotaAgent" "LinkToWindowsService"
@@ -348,7 +347,7 @@ DEBLOAT() {
         "TencentWifiSecurity" "TNCPageCN" "TouchToSearch_None_CTS" "ChatPPCN" "CarLinkApp"
         "Firewall" "HongbaoAssistant" "ChinaUnionPay" "ChinaHiddenMenu"
         "ChnFileShareKitService" "YourPhone_China" "LinkToWindowsService_China" "GimbalTrackingKit"
-        "FusedLocation_Baidu" "MinorMode" "SightCare" "EasymodeContactsWidget81" "VisualCloudCore"
+        "FusedLocation_Baidu" "MinorMode" "SightCare" "EasymodeContactsWidget81"
         "SamsungYellowPage" "PushServiceCN" "BudsUniteManager" "SendHelpMessage" "SketchBook"
         "SecSoterService" "SoterSskdsService"
     )
