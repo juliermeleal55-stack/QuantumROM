@@ -166,7 +166,7 @@ jobs:
         run: |
           export STOCK_DEVICE="${{ github.event.inputs.STOCK_DEVICE }}"
           export TARGET_DEVICE="${{ github.event.inputs.TARGET_DEVICE }}"
-          bash scripts/images_zip.sh
+          bash scripts/flashable_zip.sh
 
 
       - name: Upload ROM Artifact
