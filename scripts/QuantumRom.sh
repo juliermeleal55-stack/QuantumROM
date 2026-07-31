@@ -224,58 +224,46 @@ DOWNLOAD_FIRMWARE() {
 
 
 ADD_KERNELSU_NEXT() {
-    if [ "$#" -ne 1 ]; then
-        echo -e "Usage: ${FUNCNAME[0]} <EXTRACTED_FIRM_DIR>"
-        return 1
-    fi
-
-    local TARGET_DIR="$1"
+    local TARGET_DIR="${1%/}"
     local KSU_VERSION="v3.2.0"
     local KSU_APK_URL="https://github.com/KernelSU-Next/KernelSU-Next/releases/download/${KSU_VERSION}/KernelSU_Next_${KSU_VERSION}_33129-release.apk"
-    local APK_PATH="system/preload/KernelSU-Next/com.rifsxd.ksunext-mesa==/base.apk"
+    local APK_PATH="preload/KernelSU-Next/com.rifsxd.ksunext-mesa==/base.apk"
     local FULL_APK_PATH="$TARGET_DIR/system/system/$APK_PATH"
     local VPL_LIST="$TARGET_DIR/system/system/etc/vpl_apks_count_list.txt"
+    local KSU_DIR="$TARGET_DIR/system/system/preload/KernelSU-Next"
 
     echo "- Adding KernelSU-Next ${KSU_VERSION} to preload apps..."
+    echo "  - Target: $FULL_APK_PATH"
 
-    # ── Download ──────────────────────────────────────────────────────────────
-    mkdir -p "$(dirname "$FULL_APK_PATH")"
-    if command -v curl &>/dev/null; then
-        curl -fsSL "$KSU_APK_URL" -o "$FULL_APK_PATH" || {
-            echo "[WARN] Failed to download KernelSU-Next APK"
-            return 1
-        }
-    else
-        wget -q "$KSU_APK_URL" -O "$FULL_APK_PATH" || {
-            echo "[WARN] Failed to download KernelSU-Next APK"
-            return 1
-        }
-    fi
+    mkdir -p "$(dirname "$FULL_APK_PATH")" || true
+    echo "  - Downloading..."
 
-    # ── Set metadata (permissions + SELinux context) ──────────────────────────
+    curl -fsSL "$KSU_APK_URL" -o "$FULL_APK_PATH" || {
+        echo "[WARN] Failed to download KernelSU-Next APK"
+        return 1
+    }
+
+    echo "  - Download done, setting metadata..."
+
     while IFS= read -r entry; do
-        # Strip base path prefix to get relative path
-        local rel="${entry#$TARGET_DIR/system/}"
+        local rel="${entry#$TARGET_DIR/system/system/}"
         [ -z "$rel" ] && continue
-
         if [ -d "$entry" ]; then
             chmod 755 "$entry"
-            chown 0:0 "$entry"
+            chown 0:0 "$entry" 2>/dev/null || true
             chcon "u:object_r:system_file:s0" "$entry" 2>/dev/null || true
         else
             chmod 644 "$entry"
-            chown 0:0 "$entry"
+            chown 0:0 "$entry" 2>/dev/null || true
             chcon "u:object_r:system_file:s0" "$entry" 2>/dev/null || true
         fi
-
-        # Add APK to vpl_apks_count_list.txt if not already present
         if [[ "$rel" == *".apk" ]] && [ -f "$VPL_LIST" ]; then
             if ! grep -q "$rel" "$VPL_LIST"; then
-                echo "- Adding \"$rel\" to vpl_apks_count_list.txt"
+                echo "  - Adding \"$rel\" to vpl_apks_count_list.txt"
                 echo "$rel" >> "$VPL_LIST"
             fi
         fi
-    done < <(find "$TARGET_DIR/system/system/preload/KernelSU-Next")
+    done < <(find "$KSU_DIR")
 
     echo "  - Done."
 }
