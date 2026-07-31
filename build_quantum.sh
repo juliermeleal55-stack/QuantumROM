@@ -15,19 +15,19 @@
 # =============================================================================
 
 # Stock device model or "None"
-STOCK_DEVICE="SM-G780F"
+STOCK_DEVICE="SM-G980F"
 
 # Set to True if your kernel BPF version is 5.4 (lower than 5.10)
 USE_UI_8_TETHERING_APEX="True"
 
 # Target device model
-TARGET_DEVICE="SM-S901B"
+TARGET_DEVICE="SM-S711B"
 
 # Target device CSC
 TARGET_DEVICE_CSC="EUX"
 
 # Target device IMEI
-TARGET_DEVICE_IMEI="350330051234562"
+TARGET_DEVICE_IMEI="350389910895757"
 
 # Output filesystem: erofs | ext4 | f2fs
 OUTPUT_FILESYSTEM="erofs"
@@ -37,7 +37,7 @@ TARGET_FW_VERSION=""
 
 # Generate a flashable zip at the end of the build? (EXPERIMENTAL)
 # If false, an images zip (raw .img + fastboot sh script) will be generated instead.
-CREATE_FLASHABLE_ZIP="false"
+CREATE_FLASHABLE_ZIP="true"
 
 # =============================================================================
 #                      END OF CONFIGURATION AREA
