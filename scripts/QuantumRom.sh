@@ -1691,46 +1691,6 @@ APPLY_CUSTOM_FLOATING_FEATURE() {
 }
 
 
-PATCH_ARTISAN_ALIGNMENT_FEATURES() {
-    echo " "
-    if [ "$#" -ne 1 ]; then
-        echo -e "Usage: ${FUNCNAME[0]} <EXTRACTED_FIRM_DIR>"
-        return 1
-    fi
-
-    local TARGET_DIR="$1"
-    echo "- Applying Artisan Feature Alignment & Resolution Fixes..."
-
-    local DUMP_DIR="/mnt/caddy/coisas_do_miguel/Port/MIO-KITCHEN-4.1.8-linux/oneui8parakangdelibs"
-    local PORT_SYS="${TARGET_DIR}/system/system"
-
-    # 1. Sincronizar permissões de recursos com o seu dump estável do S20
-    if [ -d "${DUMP_DIR}/system/system/etc/permissions" ]; then
-        echo "  -> Aligning Samsung core permissions (etc/permissions)..."
-        # Remove permissões exclusivas do S22 que causam conflitos
-        rm -f "${PORT_SYS}/etc/permissions/com.sec.feature"* 2>/dev/null
-        # Injeta as permissões corrigidas e mapeadas do seu dump do S20
-        cp -f "${DUMP_DIR}/system/system/etc/permissions/com.sec.feature"* "${PORT_SYS}/etc/permissions/"
-    fi
-
-    # 2. Correção de Mídia e Arquivos de Áudio (ALSA/Extractors)
-    # Garante que os caminhos de áudio conversem com as tabelas do mixer do kernel 4.19
-    if [ -d "${DUMP_DIR}/system/system/usr/share/alsa" ]; then
-        echo "  -> Copying ALSA audio configurations from stable dump..."
-        mkdir -p "${PORT_SYS}/usr/share/alsa"
-        cp -rf "${DUMP_DIR}/system/system/usr/share/alsa/"* "${PORT_SYS}/usr/share/alsa/"
-    fi
-
-    # 3. Forçar o controle dinâmico de resolução (WQHD/FHD/HD) via build.prop
-    # Isso simula o efeito do comando SET_FLOATING_FEATURE de forma global
-    echo "  -> Hardcoding Dynamic Resolution Control for Exynos 990..."
-    BUILD_PROP "$TARGET_DIR" "system" "ro.multimode.change" "true"
-UPDATE_FLOATING_FEATURE "SEC_FLOATING_FEATURE_COMMON_CONFIG_DYN_RESOLUTION_CONTROL" "WQHD,FHD,HD"
-
-    echo "    -> Feature alignment completed!"
-}
-
-
 APPLY_STOCK_ROM_FLOATING_FEATURE() {
     echo " "
 
@@ -1889,6 +1849,33 @@ APPLY_STOCK_ROM_FLOATING_FEATURE() {
     UPDATE_FLOATING_FEATURE "$FLOATING_FEATURE_FILE_DIRECTORY" \
     "SEC_FLOATING_FEATURE_COMMON_CONFIG_EMBEDDED_SIM_SLOTSWITCH" \
     "$(GET_FF_VALUE "SEC_FLOATING_FEATURE_COMMON_CONFIG_EMBEDDED_SIM_SLOTSWITCH" "$STOCK_ROM_FLOATING_FEATURE")"
+
+    #========== FIX CAMERA (S20 STOCK COMPATIBILITY) ==========#
+
+    sed -i '/<SEC_FLOATING_FEATURE_CAMERA_SUPPORT_SWITCH_FACING_SEAMLESS>/d' "$FLOATING_FEATURE_FILE_DIRECTORY"
+    sed -i '/<SEC_FLOATING_FEATURE_CAMERA_CONFIG_LOGICAL_CAM_CAMIDS>/d' "$FLOATING_FEATURE_FILE_DIRECTORY"
+    sed -i '/<SEC_FLOATING_FEATURE_CAMERA_CONFIG_PHYSICAL_CAMIDS>/d' "$FLOATING_FEATURE_FILE_DIRECTORY"
+
+    UPDATE_FLOATING_FEATURE "$FLOATING_FEATURE_FILE_DIRECTORY" \
+    "SEC_FLOATING_FEATURE_CAMERA_CONFIG_CAMID_WIDE" \
+    "$(GET_FF_VALUE "SEC_FLOATING_FEATURE_CAMERA_CONFIG_CAMID_WIDE" "$STOCK_ROM_FLOATING_FEATURE")"
+
+    UPDATE_FLOATING_FEATURE "$FLOATING_FEATURE_FILE_DIRECTORY" \
+    "SEC_FLOATING_FEATURE_CAMERA_CONFIG_CAMID_UW" \
+    "$(GET_FF_VALUE "SEC_FLOATING_FEATURE_CAMERA_CONFIG_CAMID_UW" "$STOCK_ROM_FLOATING_FEATURE")"
+
+    UPDATE_FLOATING_FEATURE "$FLOATING_FEATURE_FILE_DIRECTORY" \
+    "SEC_FLOATING_FEATURE_CAMERA_CONFIG_VENDOR_LIB_INFO" \
+    "$(GET_FF_VALUE "SEC_FLOATING_FEATURE_CAMERA_CONFIG_VENDOR_LIB_INFO" "$STOCK_ROM_FLOATING_FEATURE")"
+
+    UPDATE_FLOATING_FEATURE "$FLOATING_FEATURE_FILE_DIRECTORY" \
+    "SEC_FLOATING_FEATURE_CAMERA_CONFIG_CORE_VERSION" \
+    "$(GET_FF_VALUE "SEC_FLOATING_FEATURE_CAMERA_CONFIG_CORE_VERSION" "$STOCK_ROM_FLOATING_FEATURE")"
+
+    UPDATE_FLOATING_FEATURE "$FLOATING_FEATURE_FILE_DIRECTORY" \
+    "SEC_FLOATING_FEATURE_CAMERA_CONFIG_PERSONALIZATION" \
+    "$(GET_FF_VALUE "SEC_FLOATING_FEATURE_CAMERA_CONFIG_PERSONALIZATION" "$STOCK_ROM_FLOATING_FEATURE")"
+
 }
 
 
@@ -2441,29 +2428,6 @@ APPLY_CUSTOM_FEATURES() {
 
 	chown -R "$REAL_USER:$REAL_USER" "$EXTRACTED_FIRM_DIR"
     chmod -R u+rwX "$EXTRACTED_FIRM_DIR"
-	
-	if [ -d "$(pwd)/QuantumROM/usefull_things" ]; then
-        cp -a "$(pwd)/QuantumROM/usefull_things/." "$(pwd)/OUT"
-    fi
-}
-
-
-FIX_QUANTUM_SECURITY_ALIGNMENT() {
-    echo " "
-
-    if [ "$#" -ne 1 ]; then
-        echo -e "Usage: ${FUNCNAME[0]} <EXTRACTED_FIRM_DIR>"
-        return 1
-    fi
-
-    local TARGET_DIR="$1"
-    echo "- Aligning Port Security Framework with Stock Vendor..."
-
-    # 2. Restore keystore hardware configuration permissions
-    if [ -f "${STOCK_SYS}/etc/permissions/android.hardware.keystore.xml" ]; then
-        mkdir -p "${PORT_SYS}/etc/permissions"
-        cp -f "${STOCK_SYS}/etc/permissions/android.hardware.keystore.xml" "${PORT_SYS}/etc/permissions/"
-    fi
 }
 
 
@@ -2593,6 +2557,180 @@ PATCH_SAMSUNG_CAMERA_LIBS() {
     cp -f "$LIB_LIST_FILE" "${PORT_ETC_DIR}/public.libraries-camera.samsung.txt"
 
     echo "  - Success: Samsung camera libraries synchronized successfully."
+}
+
+
+INSTALL_BLOB() {
+    if [ "$#" -ne 5 ]; then
+        echo -e "Usage: ${FUNCNAME[0]} <SRC_BASE> <PARTITION> <REL_PATH> <PERM> <CONTEXT>"
+        return 1
+    fi
+
+    local SRC_BASE="$1"
+    local PARTITION="$2"
+    local REL_PATH="$3"
+    local PERM="$4"
+    local CONTEXT="$5"
+
+    local SRC_FILE="$SRC_BASE/$REL_PATH"
+    local DEST_FILE="$WORK_DIR/$REL_PATH"
+
+    if [ -e "$SRC_FILE" ]; then
+        mkdir -p "$(dirname "$DEST_FILE")"
+        cp -af "$SRC_FILE" "$DEST_FILE"
+        SET_METADATA "$PARTITION" "${REL_PATH#$PARTITION/}" 0 0 "$PERM" "$CONTEXT"
+    else
+        echo -e "- Warning: Source file not found: $SRC_FILE"
+    fi
+}
+
+
+SET_METADATA() {
+    if [ "$#" -ne 6 ]; then
+        echo -e "Usage: ${FUNCNAME[0]} <PARTITION> <REL_PATH> <USER_ID> <GID> <MODE> <SECONTEXT>"
+        return 1
+    fi
+
+    local PARTITION="$1"
+    local REL_PATH="$2"
+    local USER_ID="$3"    # Alterado de UID para USER_ID
+    local GID="$4"
+    local MODE="$5"
+    local SECONTEXT="$6"
+
+    local TARGET_PATH="$WORK_DIR/$PARTITION/$REL_PATH"
+    TARGET_PATH="$(echo "$TARGET_PATH" | sed 's#//#/#g')"
+
+    if [ ! -e "$TARGET_PATH" ]; then
+        echo -e "- Warning: Target path not found for metadata: $TARGET_PATH"
+        return 1
+    fi
+
+    chmod "$MODE" "$TARGET_PATH" 2>/dev/null
+    chown "$USER_ID:$GID" "$TARGET_PATH" 2>/dev/null  # Alterado aqui também
+
+    if command -v chcon >/dev/null 2>&1; then
+        chcon "$SECONTEXT" "$TARGET_PATH" 2>/dev/null
+    fi
+}
+
+
+APPLY_CAMERA_PATCH() {
+    echo " "
+
+    if [ "$#" -ne 2 ]; then
+        echo -e "Usage: ${FUNCNAME[0]} <EXTRA_DIR> <WORK_DIR>"
+        return 1
+    fi
+
+    local EXTRA_DIR="$1"
+    local WORK_DIR="$2"
+
+    if [ ! -d "$EXTRA_DIR" ]; then
+        echo -e "- Directory not found: $EXTRA_DIR"
+        return 1
+    fi
+
+    if [ ! -d "$WORK_DIR" ]; then
+        echo -e "- Directory not found: $WORK_DIR"
+        return 1
+    fi
+
+    local STOCK_DIR="$DEVICES_DIR/$STOCK_DEVICE/Stock"
+    local P3S_DIR="$EXTRA_DIR/p3sxxx"
+    local E2S_DIR="$EXTRA_DIR/e2sxxx"
+
+    echo -e "- Applying Camera and Blobs Patch (tks ArtisanROM)..."
+
+    # --------------------------------------------------------------------------
+    # Cleanups
+    # --------------------------------------------------------------------------
+    rm -f "$WORK_DIR/system/system/lib64/libdualcam_portraitlighting_gallery_360.so"
+    rm -f "$WORK_DIR/system/system/lib64/libenn_wrapper_system.so"
+
+    # --------------------------------------------------------------------------
+    # 1. Snap Libs
+    # --------------------------------------------------------------------------
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/etc/public.libraries-snap.samsung.txt" 644 "u:object_r:system_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libeden_wrapper_system.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libsnap_aidl.snap.samsung.so" 644 "u:object_r:system_lib_file:s0"
+
+    # --------------------------------------------------------------------------
+    # 2. Camera Libs (Stock & Arcsoft)
+    # --------------------------------------------------------------------------
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/etc/public.libraries-arcsoft.txt" 644 "u:object_r:system_file:s0"
+
+    # Food Libs e registro na lista pública
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libFood.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    local VPL_CAM="$WORK_DIR/system/system/etc/public.libraries-camera.samsung.txt"
+    if [ -f "$VPL_CAM" ] && ! grep -q "libFood.camera.samsung.so" "$VPL_CAM"; then
+        echo "libFood.camera.samsung.so" >> "$VPL_CAM"
+    fi
+
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libFoodDetector.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    if [ -f "$VPL_CAM" ] && ! grep -q "libFoodDetector.camera.samsung.so" "$VPL_CAM"; then
+        echo "libFoodDetector.camera.samsung.so" >> "$VPL_CAM"
+    fi
+
+    # Processing Libs (Stock)
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libPortraitDistortionCorrectionCali.arcsoft.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libMultiFrameProcessing20.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libMultiFrameProcessing20Core.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libMultiFrameProcessing20Day.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libMultiFrameProcessing20Tuning.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libMultiFrameProcessing30.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libMultiFrameProcessing30.snapwrapper.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libMultiFrameProcessing30Tuning.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/libGeoTrans10.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$STOCK_DIR" "system" "system/system/lib64/vendor.samsung_slsi.hardware.geoTransService@1.0.so" 644 "u:object_r:system_lib_file:s0"
+
+    # Processing Libs (P3S / S21)
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libhigh_dynamic_range.arcsoft.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/liblow_light_hdr.arcsoft.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libhigh_res.arcsoft.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libsuperresolution.arcsoft.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libsuperresolution_raw.arcsoft.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libsuperresolution_wrapper_v2.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR"   "system" "system/lib64/libsuperresolutionraw_wrapper_v2.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+
+    # --------------------------------------------------------------------------
+    # 3. SWISP Models (p3sxxx)
+    # --------------------------------------------------------------------------
+    rm -rf "$WORK_DIR/vendor/saiv/swisp_1.0"
+    if [ -d "$P3S_DIR/vendor/saiv/swisp_1.0" ]; then
+        mkdir -p "$WORK_DIR/vendor/saiv/swisp_1.0"
+        cp -af "$P3S_DIR/vendor/saiv/swisp_1.0/." "$WORK_DIR/vendor/saiv/swisp_1.0/"
+        SET_METADATA "vendor" "saiv/swisp_1.0" 0 0 755 "u:object_r:vendor_file:s0"
+    fi
+    INSTALL_BLOB "$P3S_DIR" "system" "system/lib64/libSwIsp_core.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+    INSTALL_BLOB "$P3S_DIR" "system" "system/lib64/libSwIsp_wrapper_v1.camera.samsung.so" 644 "u:object_r:system_lib_file:s0"
+
+    # --------------------------------------------------------------------------
+    # 4. PatchELF Dependency
+    # --------------------------------------------------------------------------
+    local TARGET_CORE_LIB="$WORK_DIR/system/system/lib64/libMultiFrameProcessing20Core.camera.samsung.so"
+    if [ -f "$TARGET_CORE_LIB" ]; then
+        patchelf --add-needed "libc++_shared.so" "$TARGET_CORE_LIB"
+    fi
+
+    # --------------------------------------------------------------------------
+    # 5. Extra Blobs
+    # --------------------------------------------------------------------------
+    INSTALL_BLOB "$E2S_DIR" "system" "system/lib64/libc++_shared.so" 644 "u:object_r:system_lib_file:s0"
+
+    # --------------------------------------------------------------------------
+    # 6. SingleTake Models (p3sxxx)
+    # --------------------------------------------------------------------------
+    rm -rf "$WORK_DIR/vendor/etc/singletake"
+    INSTALL_BLOB "$P3S_DIR" "system" "system/cameradata/singletake/service-feature.xml" 644 "u:object_r:system_file:s0"
+
+    if [ -d "$P3S_DIR/vendor/etc/singletake" ]; then
+        mkdir -p "$WORK_DIR/vendor/etc/singletake"
+        cp -af "$P3S_DIR/vendor/etc/singletake/." "$WORK_DIR/vendor/etc/singletake/"
+        SET_METADATA "vendor" "etc/singletake" 0 0 755 "u:object_r:vendor_file:s0"
+    fi
+
+    echo -e "- Camera patch applied successfully!"
 }
 
 
