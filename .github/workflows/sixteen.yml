@@ -79,8 +79,7 @@ jobs:
           RELEASE_TAG: "extra-files"
         run: |
           set -e
-
-          SUPPORTED_DEVICES=("SM-G780F" "SM-G980F" "SM-G988B")
+          SUPPORTED_DEVICES=("SM-G780F" "SM-G975F" "SM-G980F" "SM-G988B")
 
           IS_SUPPORTED=false
           for d in "${SUPPORTED_DEVICES[@]}"; do
